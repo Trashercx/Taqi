@@ -159,6 +159,7 @@ model Organization {
   updatedAt  DateTime           @updatedAt @map("updated_at")
 
   contacts OrganizationContact[]
+  licenses License[]
   // "memberships" (usuarios del cliente con login propio) se agrega cuando
   // se construya el portal/intranet -- ver PLANTEAMIENTO_SUPERADMIN.md SS2.
 
@@ -178,6 +179,111 @@ model OrganizationContact {
 
   @@index([organizationId])
   @@map("organization_contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Planes y licencias (SS6.4, SS6.5). Un Plan es la definicion viva (editable);
+// cada License apunta a un PlanVersion -- una instantania inmutable de precio
+// y limites -- para que editar un plan no altere silenciosamente contratos ya
+// firmados (regla explicita de SS6.4).
+// ---------------------------------------------------------------------------
+
+enum PlanStatus {
+  draft
+  active
+  archived
+}
+
+model Plan {
+  id        String     @id @default(uuid())
+  code      String     @unique
+  name      String
+  status    PlanStatus @default(draft)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  versions PlanVersion[]
+
+  @@map("plans")
+}
+
+// billingPeriod: "monthly" | "yearly". overagePolicy: "block" | "degrade" |
+// "alert" | "charge" (SS6.4). No son enums de Postgres para poder agregar
+// variantes sin migracion; se validan en la capa de aplicacion (DTOs).
+model PlanVersion {
+  id               String   @id @default(uuid())
+  planId           String   @map("plan_id")
+  versionNumber    Int      @map("version_number")
+  name             String
+  priceAmount      Int      @map("price_amount")
+  currency         String   @default("PEN")
+  billingPeriod    String   @map("billing_period")
+  trialDays        Int      @default(0) @map("trial_days")
+  maxUsers         Int?     @map("max_users")
+  maxBranches      Int?     @map("max_branches")
+  maxProducts      Int?     @map("max_products")
+  maxWarehouses    Int?     @map("max_warehouses")
+  apiRequestLimit  Int?     @map("api_request_limit")
+  storageLimitMb   Int?     @map("storage_limit_mb")
+  featureFlags     String[] @map("feature_flags")
+  overagePolicy    String   @default("alert") @map("overage_policy")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  plan     Plan       @relation(fields: [planId], references: [id], onDelete: Restrict)
+  licenses License[]
+
+  @@unique([planId, versionNumber])
+  @@map("plan_versions")
+}
+
+enum LicenseStatus {
+  draft
+  trial
+  active
+  past_due
+  grace_period
+  suspended
+  expired
+  revoked
+}
+
+model License {
+  id            String        @id @default(uuid())
+  publicId      String        @unique @map("public_id")
+  organizationId String       @map("organization_id")
+  planVersionId String        @map("plan_version_id")
+  status        LicenseStatus @default(draft)
+  startsAt      DateTime      @map("starts_at")
+  endsAt        DateTime      @map("ends_at")
+  graceEndsAt   DateTime?     @map("grace_ends_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  planVersion  PlanVersion   @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  events       LicenseEvent[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("licenses")
+}
+
+// Historial de transiciones de estado (SS6.5 "mantener historial de
+// transiciones con actor, motivo y fecha"). Nunca se actualiza ni se borra
+// una fila existente, solo se agregan nuevas.
+model LicenseEvent {
+  id         String   @id @default(uuid())
+  licenseId  String   @map("license_id")
+  fromStatus String?  @map("from_status")
+  toStatus   String   @map("to_status")
+  actorId    String?  @map("actor_id")
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+  @@map("license_events")
 }
 
 // ---------------------------------------------------------------------------

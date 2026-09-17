@@ -1,6 +1,7 @@
 /**
- * Lista de capacidades aprobada en PLANTEAMIENTO_SUPERADMIN.md SS5. No
- * agregar codigos aqui sin actualizar ese contrato primero.
+ * Lista de capacidades aprobada en PLANTEAMIENTO_SUPERADMIN.md SS5 (la lista
+ * base es "por ejemplo", no exhaustiva; las adiciones de cada fase se anotan
+ * ahi mismo). No agregar codigos aqui sin actualizar ese contrato primero.
  */
 export const CAPABILITIES = [
   'organizations.read',
@@ -8,6 +9,9 @@ export const CAPABILITIES = [
   'organizations.update',
   'users.invite',
   'users.reset_credentials',
+  'plans.read',
+  'plans.manage',
+  'licenses.read',
   'licenses.issue',
   'licenses.renew',
   'licenses.suspend',

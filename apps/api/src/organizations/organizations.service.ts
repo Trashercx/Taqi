@@ -64,11 +64,17 @@ export class OrganizationsService {
     if (!organization)
       throw new NotFoundException('Organizacion no encontrada');
 
+    const licenses = await this.prisma.license.findMany({
+      where: { organizationId: id },
+      orderBy: { createdAt: 'desc' },
+      include: { planVersion: { include: { plan: true } } },
+    });
+
     return {
       organization,
-      // Licencias, consumo y finanzas se conectan en las fases 2-4 del
-      // roadmap; la vista 360 completa (SS6.2) se completa entonces.
-      licenses: [],
+      licenses,
+      // Consumo y finanzas se conectan en las fases 3-4 del roadmap; la
+      // vista 360 completa (SS6.2) se completa entonces.
       usage: null,
       recentActivity: [],
     };

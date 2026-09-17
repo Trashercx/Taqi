@@ -24,10 +24,14 @@ describe('E2E: login -> organizacion -> invitacion (Fase 1)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
-  const actorEmail = `e2e-actor-${Date.now()}@example.com`;
+  const suffix = Date.now();
+  const actorEmail = `e2e-actor-${suffix}@example.com`;
   const actorPassword = 'ActorPassword123!';
-  const invitedEmail = `e2e-invitado-${Date.now()}@example.com`;
+  const invitedEmail = `e2e-invitado-${suffix}@example.com`;
   const invitedPassword = 'InvitedPassword123!';
+  // RUC peruano: 11 digitos. Se arma con el sufijo para que cada corrida use
+  // uno distinto y no choque con organizaciones de corridas anteriores.
+  const organizationRuc = `20${String(suffix).slice(-9)}`;
 
   let actorInvitationToken: string;
   let actorTotpSecret: string;
@@ -156,7 +160,7 @@ describe('E2E: login -> organizacion -> invitacion (Fase 1)', () => {
       .set('Authorization', `Bearer ${actorAccessToken}`)
       .send({
         legalName: 'Comercial E2E SAC',
-        ruc: '20999999999',
+        ruc: organizationRuc,
         email: 'contacto@e2e.pe',
         status: 'prospecto',
       });
@@ -180,7 +184,7 @@ describe('E2E: login -> organizacion -> invitacion (Fase 1)', () => {
       .get(`/api/v1/organizations/${organizationId}`)
       .set('Authorization', `Bearer ${actorAccessToken}`);
     expect(getRes.status).toBe(200);
-    expect(getRes.body.ruc).toBe('20999999999');
+    expect(getRes.body.ruc).toBe(organizationRuc);
 
     const overviewRes = await request(app.getHttpServer())
       .get(`/api/v1/organizations/${organizationId}/overview`)

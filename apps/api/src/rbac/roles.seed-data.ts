@@ -28,6 +28,9 @@ export const ROLE_SEEDS: {
       'organizations.update',
       'users.invite',
       'users.reset_credentials',
+      'plans.read',
+      'plans.manage',
+      'licenses.read',
       'licenses.issue',
       'licenses.renew',
       'licenses.suspend',
@@ -45,6 +48,8 @@ export const ROLE_SEEDS: {
       'finance.read',
       'finance.write',
       'organizations.read',
+      'plans.read',
+      'licenses.read',
       'usage.read',
     ],
   },
@@ -53,7 +58,7 @@ export const ROLE_SEEDS: {
     name: 'Support Agent',
     description:
       'Lectura de clientes y licencias, notas de soporte y acciones limitadas.',
-    capabilities: ['organizations.read'],
+    capabilities: ['organizations.read', 'licenses.read', 'plans.read'],
   },
   {
     code: 'auditor',
@@ -62,6 +67,8 @@ export const ROLE_SEEDS: {
     capabilities: [
       'audit.read',
       'organizations.read',
+      'plans.read',
+      'licenses.read',
       'usage.read',
       'finance.read',
     ],

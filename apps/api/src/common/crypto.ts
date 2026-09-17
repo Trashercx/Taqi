@@ -64,3 +64,19 @@ export function hashIp(ip: string | undefined): string | undefined {
   if (!ip) return undefined;
   return createHash('sha256').update(ip).digest('hex').slice(0, 32);
 }
+
+const PUBLIC_ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O/1/I
+
+/**
+ * Identificador publico no secuencial (SS6.5: "identificador publico no
+ * secuencial"). Distinto del id interno (UUID) para no exponer la clave
+ * primaria de base de datos como referencia externa.
+ */
+export function generatePublicId(prefix: string): string {
+  const bytes = randomBytes(10);
+  let suffix = '';
+  for (const byte of bytes) {
+    suffix += PUBLIC_ID_ALPHABET[byte % PUBLIC_ID_ALPHABET.length];
+  }
+  return `${prefix}-${suffix}`;
+}
