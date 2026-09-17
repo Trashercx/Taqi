@@ -1,0 +1,37 @@
+{
+  "family": "superadmin-seed",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/superadmin-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/superadmin-api-task-role",
+  "containerDefinitions": [
+    {
+      "name": "seed",
+      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/superadmin-api:latest",
+      "essential": true,
+      "command": ["node", "dist/prisma/seed.js"],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PLATFORM_OWNER_EMAIL", "value": "<TU_CORREO_DE_PLATFORM_OWNER>" },
+        { "name": "PLATFORM_OWNER_NAME", "value": "Platform Owner" }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:<AWS_REGION>:<AWS_ACCOUNT_ID>:secret:superadmin/database-url"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/superadmin-seed",
+          "awslogs-region": "<AWS_REGION>",
+          "awslogs-stream-prefix": "seed",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

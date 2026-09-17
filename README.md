@@ -10,8 +10,8 @@ SUNAT quedan preparados arquitectónicamente, pero no se implementan todavía.
 El plan completo (visión, alcance, arquitectura, roles, roadmap, backlog)
 vive en [`PLANTEAMIENTO_SUPERADMIN.md`](./PLANTEAMIENTO_SUPERADMIN.md). La
 referencia visual del producto vive en [`DESIGN.md`](./DESIGN.md). Este
-README cubre cómo correr el proyecto, no por qué existe cada decisión — para
-eso, lee el plan y los ADR.
+README cubre cómo correr el proyecto localmente (Docker). Para desplegarlo
+en AWS paso a paso, ver [`AWS_DEPLOYMENT_GUIDE.md`](./AWS_DEPLOYMENT_GUIDE.md).
 
 ## Stack
 
@@ -105,9 +105,14 @@ contenedores con hot-reload por volumen.
   MFA, clientes, usuarios, licencias, planes, consumo y finanzas operan con
   datos reales. Alertas, Salud del sistema y Configuración siguen como
   placeholders: no tienen backend todavía.
+- **Código de despliegue a AWS:** listo (Dockerfiles de producción
+  multi-stage, definiciones de tarea de ECS, políticas de IAM, pipeline de
+  CI/CD) — ver [`AWS_DEPLOYMENT_GUIDE.md`](./AWS_DEPLOYMENT_GUIDE.md). La
+  infraestructura en sí todavía no está aprovisionada: esa guía es para
+  crearla a mano desde la consola.
 
 No implementado todavía (documentado explícitamente en el código, no
-descuidos): infraestructura AWS real, adjuntos de sustento (necesitan S3),
+descuidos): adjuntos de sustento (necesitan el bucket S3 de la guía),
 agregación asíncrona de consumo vía cola/worker, vencimiento automático de
 licencias por paso del tiempo, y el módulo de Alertas (SS6.8).
 

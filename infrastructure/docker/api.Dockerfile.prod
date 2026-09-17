@@ -1,0 +1,86 @@
+# Imagen de PRODUCCION para apps/api. A diferencia de api.Dockerfile (dev,
+# con hot-reload y dependencias de desarrollo), esta imagen:
+#   - compila TypeScript a JS (nest build) en una etapa separada,
+#   - instala solo dependencias de produccion en la imagen final,
+#   - corre como usuario sin privilegios,
+#   - no incluye ts-node/nest-cli/jest/etc en la imagen final.
+#
+# Build (desde la raiz del monorepo):
+#   docker build -f infrastructure/docker/api.Dockerfile.prod -t superadmin-api:latest .
+#
+# Las migraciones NO corren al iniciar el contenedor a proposito: con varias
+# tareas de ECS arrancando en paralelo, correr "prisma migrate deploy" en
+# cada una podria generar una condicion de carrera. Se corren como una tarea
+# de ECS aparte (ver AWS_DEPLOYMENT_GUIDE.md), una sola vez por despliegue.
+
+# ---------------------------------------------------------------------------
+FROM node:20-alpine AS deps
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+# argon2 no publica binarios prebuilt para toda combinacion de plataforma;
+# estas herramientas permiten compilarlo desde codigo fuente si hace falta.
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY apps/api/package.json ./apps/api/package.json
+# El postinstall del paquete ("prisma generate") necesita el schema
+# presente ANTES del install, o falla con "Could not find Prisma Schema".
+COPY apps/api/prisma ./apps/api/prisma
+COPY packages ./packages
+
+RUN pnpm install --filter @superadmin/api... --frozen-lockfile
+
+# ---------------------------------------------------------------------------
+FROM deps AS build
+COPY apps/api ./apps/api
+RUN pnpm --filter @superadmin/api build
+
+# ---------------------------------------------------------------------------
+# Reinstala solo dependencias de produccion en una etapa limpia. Se probo
+# "pnpm prune --prod" sobre el node_modules de la etapa "deps" en su lugar
+# (evita una segunda instalacion), pero en este contexto de workspace
+# filtrado dejaba symlinks huerfanos -- @nestjs/common y otros quedaban
+# presentes en el store (.pnpm/) pero sin el symlink de nivel superior que
+# Node necesita para resolverlos. Una reinstalacion limpia es mas lenta pero
+# confiable. "prisma" (el CLI) es dependencia de produccion a proposito: lo
+# necesita tanto el postinstall aqui como la tarea de ECS de migraciones,
+# que reutiliza esta misma imagen (ver infrastructure/aws/task-definitions).
+FROM node:20-alpine AS prod-deps
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/api/prisma ./apps/api/prisma
+COPY packages ./packages
+
+RUN pnpm install --filter @superadmin/api... --prod --frozen-lockfile
+
+# ---------------------------------------------------------------------------
+FROM node:20-alpine AS runner
+RUN apk add --no-cache dumb-init curl
+RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
+
+WORKDIR /app
+COPY --from=prod-deps --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=nestjs:nodejs /app/packages ./packages
+# pnpm resuelve las dependencias DIRECTAS de apps/api a traves de sus propios
+# symlinks en apps/api/node_modules (no solo desde la raiz): sin este COPY,
+# el contenedor arranca y explota con "Cannot find module '@nestjs/common'"
+# aunque el paquete si este en node_modules/.pnpm.
+COPY --from=prod-deps --chown=nestjs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build --chown=nestjs:nodejs /app/apps/api/dist ./apps/api/dist
+COPY --from=build --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
+COPY --from=build --chown=nestjs:nodejs /app/apps/api/package.json ./apps/api/package.json
+
+WORKDIR /app/apps/api
+USER nestjs
+
+ENV NODE_ENV=production
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -sf http://localhost:3001/api/v1/health || exit 1
+
+CMD ["dumb-init", "node", "dist/src/main.js"]

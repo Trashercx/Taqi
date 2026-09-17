@@ -1,0 +1,89 @@
+name: Deploy (build + push a ECR)
+
+# Disparo manual a proposito, no en cada push a main: hasta que la cuenta de
+# AWS este configurada (ver AWS_DEPLOYMENT_GUIDE.md) y los secrets de este
+# repo existan, este workflow fallaria en cada commit si corriera solo.
+# Cuando quieras desplegar: pestaña "Actions" -> "Deploy (build + push a
+# ECR)" -> "Run workflow".
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag para las imagenes (por defecto: el SHA corto del commit)"
+        required: false
+        default: ""
+
+env:
+  TURBO_TELEMETRY_DISABLED: "1"
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login a Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolver el tag de imagen
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build y push de la imagen de la API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/api.Dockerfile.prod
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/superadmin-api:${{ steps.tag.outputs.value }}
+            ${{ steps.ecr-login.outputs.registry }}/superadmin-api:latest
+
+      - name: Build y push de la imagen del worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/worker.Dockerfile.prod
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/superadmin-worker:${{ steps.tag.outputs.value }}
+            ${{ steps.ecr-login.outputs.registry }}/superadmin-worker:latest
+
+      - name: Build y push de la imagen del frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/web.Dockerfile.prod
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/superadmin-web:${{ steps.tag.outputs.value }}
+            ${{ steps.ecr-login.outputs.registry }}/superadmin-web:latest
+
+      - name: Resumen
+        run: |
+          echo "### Imagenes publicadas" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.ecr-login.outputs.registry }}/superadmin-api:${{ steps.tag.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.ecr-login.outputs.registry }}/superadmin-worker:${{ steps.tag.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- \`${{ steps.ecr-login.outputs.registry }}/superadmin-web:${{ steps.tag.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Este workflow solo publica las imagenes. Actualizar el servicio de" >> "$GITHUB_STEP_SUMMARY"
+          echo "ECS para que las use es un paso manual (ver AWS_DEPLOYMENT_GUIDE.md)" >> "$GITHUB_STEP_SUMMARY"
+          echo "hasta que se agregue esa automatizacion." >> "$GITHUB_STEP_SUMMARY"
