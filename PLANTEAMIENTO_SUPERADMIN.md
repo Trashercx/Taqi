@@ -216,7 +216,8 @@ No se deben codificar permisos solo mediante condiciones como `role === 'admin'`
 - Historial de accesos y alertas por actividad inusual.
 - Invitaciones con token de un solo uso. Se debe evitar enviar contraseñas permanentes por correo.
 - Cambio obligatorio de contraseña en el primer acceso si se usa una clave temporal.
-- Sesiones basadas en access token JWT de vida corta (10-15 min) + refresh token opaco almacenado en Redis, revocable individualmente. Esto sostiene "sesiones visibles y revocables" sin depender de listas de revocación de JWT.
+- Sesiones basadas en access token JWT de vida corta (10-15 min) + refresh token opaco, revocable individualmente. Esto sostiene "sesiones visibles y revocables" sin depender de listas de revocación de JWT.
+  > **Nota de implementación (Fase 1):** el refresh token se guarda hasheado (SHA-256) en una tabla `sessions` de PostgreSQL, no en Redis como se planteaba originalmente aquí. Motivo: para el volumen del MVP no hay necesidad de la velocidad de Redis en esta ruta, y mantener la sesión en la misma base transaccional que el usuario simplifica la revocación atómica (p. ej. al suspender una cuenta) sin coordinar dos almacenes. Redis queda reservado para caché, cuotas y colas, como ya dice la sección de infraestructura. Si el volumen de sesiones concurrentes lo justifica más adelante, migrar a Redis es un cambio localizado a `AuthService`.
 - MFA mediante TOTP (RFC 6238, compatible con apps como Google Authenticator/Authy) con códigos de respaldo de un solo uso. WebAuthn/passkeys queda como mejora futura (P2), no bloqueante para el MVP.
 
 ### 6.2 Organizaciones y clientes
