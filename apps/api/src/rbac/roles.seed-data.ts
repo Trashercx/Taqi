@@ -36,6 +36,7 @@ export const ROLE_SEEDS: {
       'licenses.suspend',
       'licenses.revoke',
       'usage.read',
+      'usage.write',
       'audit.read',
     ],
   },

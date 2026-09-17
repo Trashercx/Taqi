@@ -158,8 +158,9 @@ model Organization {
   createdAt  DateTime           @default(now()) @map("created_at")
   updatedAt  DateTime           @updatedAt @map("updated_at")
 
-  contacts OrganizationContact[]
-  licenses License[]
+  contacts    OrganizationContact[]
+  licenses    License[]
+  usageEvents UsageEvent[]
   // "memberships" (usuarios del cliente con login propio) se agrega cuando
   // se construya el portal/intranet -- ver PLANTEAMIENTO_SUPERADMIN.md SS2.
 
@@ -284,6 +285,63 @@ model LicenseEvent {
 
   @@index([licenseId])
   @@map("license_events")
+}
+
+// ---------------------------------------------------------------------------
+// Medicion de consumo (SS6.6). `metric` es texto libre (no enum) a proposito:
+// la lista de metricas de SS6.6 esta explicitamente abierta ("en el futuro:
+// documentos SUNAT, CDR, productos..."), asi que agregar una metrica nueva
+// no debe requerir una migracion. UsageService valida el formato en DTOs.
+//
+// Simplificacion documentada: SS6.6 pide que "el middleware de medicion
+// emita eventos asincronos" y que "un worker los agregue" para no sumar
+// latencia a cada solicitud. Todavia no hay infraestructura de colas
+// (BullMQ) en apps/worker, asi que UsageService.recordEvent agrega de forma
+// SINCRONA (un UPDATE incremental sobre la fila de agregado, dentro de la
+// misma transaccion que el INSERT del evento). Es correcto y simple, pero
+// no es asincrono; mover esto a una cola es un cambio localizado el dia que
+// el volumen de eventos lo justifique.
+// ---------------------------------------------------------------------------
+
+model UsageEvent {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  metric         String
+  quantity       Int      @default(1)
+  occurredAt     DateTime @default(now()) @map("occurred_at")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, metric, occurredAt])
+  @@map("usage_events")
+}
+
+model UsageAggregateHourly {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  metric         String
+  periodStart    DateTime @map("period_start")
+  totalQuantity  Int      @default(0) @map("total_quantity")
+  eventCount     Int      @default(0) @map("event_count")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, metric, periodStart])
+  @@map("usage_aggregates_hourly")
+}
+
+model UsageAggregateDaily {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  metric         String
+  periodStart    DateTime @map("period_start")
+  totalQuantity  Int      @default(0) @map("total_quantity")
+  eventCount     Int      @default(0) @map("event_count")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([organizationId, metric, periodStart])
+  @@map("usage_aggregates_daily")
 }
 
 // ---------------------------------------------------------------------------

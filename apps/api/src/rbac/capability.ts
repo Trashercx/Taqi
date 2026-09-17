@@ -17,6 +17,7 @@ export const CAPABILITIES = [
   'licenses.suspend',
   'licenses.revoke',
   'usage.read',
+  'usage.write',
   'finance.read',
   'finance.write',
   'audit.read',

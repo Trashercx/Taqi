@@ -203,6 +203,8 @@ platform.settings.manage
 ```
 
 > **Nota de implementación (Fase 2):** la lista original era "por ejemplo", no exhaustiva. Al construir el módulo de licencias (SS6.5) se agregaron `plans.read`, `plans.manage` y `licenses.read`, siguiendo la misma convención `<recurso>.<verbo>` ya usada para el resto.
+>
+> **Nota de implementación (Fase 3):** se agregó `usage.write` al construir el módulo de medición de consumo (SS6.6), para el endpoint de ingesta de eventos de uso.
 
 No se deben codificar permisos solo mediante condiciones como `role === 'admin'`. Los roles agrupan capacidades, y las políticas verifican capacidades.
 

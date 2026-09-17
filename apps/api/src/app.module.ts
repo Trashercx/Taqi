@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PlansModule } from './plans/plans.module';
 import { LicensesModule } from './licenses/licenses.module';
+import { UsageModule } from './usage/usage.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { LicensesModule } from './licenses/licenses.module';
     OrganizationsModule,
     PlansModule,
     LicensesModule,
+    UsageModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

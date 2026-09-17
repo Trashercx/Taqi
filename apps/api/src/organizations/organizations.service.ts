@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { UsageService } from '../usage/usage.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { ListOrganizationsQueryDto } from './dto/list-organizations.query.dto';
@@ -10,6 +11,7 @@ export class OrganizationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly usage: UsageService,
   ) {}
 
   async list(query: ListOrganizationsQueryDto) {
@@ -70,12 +72,14 @@ export class OrganizationsService {
       include: { planVersion: { include: { plan: true } } },
     });
 
+    const usage = await this.usage.organizationUsage(id);
+
     return {
       organization,
       licenses,
-      // Consumo y finanzas se conectan en las fases 3-4 del roadmap; la
-      // vista 360 completa (SS6.2) se completa entonces.
-      usage: null,
+      usage,
+      // Finanzas se conecta en la fase 4 del roadmap; la vista 360 completa
+      // (SS6.2) se completa entonces.
       recentActivity: [],
     };
   }
