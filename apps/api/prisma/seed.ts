@@ -34,6 +34,26 @@ async function main() {
 
   await prisma.auditChainLock.upsert({ where: { id: 1 }, create: { id: 1, tipHash: 'genesis' }, update: {} });
 
+  // Catalogo inicial de finanzas (SS6.7): sin al menos una categoria por
+  // tipo, POST /finance/transactions no tiene con que funcionar.
+  const DEFAULT_CATEGORIES: { code: string; name: string; kind: 'income' | 'expense' }[] = [
+    { code: 'venta_licencia', name: 'Venta de licencia', kind: 'income' },
+    { code: 'renovacion', name: 'Renovacion', kind: 'income' },
+    { code: 'implementacion', name: 'Implementacion', kind: 'income' },
+    { code: 'soporte', name: 'Soporte', kind: 'income' },
+    { code: 'infraestructura', name: 'Infraestructura (hosting, dominios, etc.)', kind: 'expense' },
+    { code: 'personal', name: 'Personal', kind: 'expense' },
+    { code: 'marketing', name: 'Marketing', kind: 'expense' },
+    { code: 'otros_gastos', name: 'Otros gastos', kind: 'expense' },
+  ];
+  for (const category of DEFAULT_CATEGORIES) {
+    await prisma.financialCategory.upsert({
+      where: { code: category.code },
+      create: category,
+      update: { name: category.name, kind: category.kind },
+    });
+  }
+
   const ownerEmail = process.env.PLATFORM_OWNER_EMAIL ?? 'owner@example.com';
   const ownerName = process.env.PLATFORM_OWNER_NAME ?? 'Platform Owner';
 

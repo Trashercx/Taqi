@@ -158,9 +158,10 @@ model Organization {
   createdAt  DateTime           @default(now()) @map("created_at")
   updatedAt  DateTime           @updatedAt @map("updated_at")
 
-  contacts    OrganizationContact[]
-  licenses    License[]
-  usageEvents UsageEvent[]
+  contacts              OrganizationContact[]
+  licenses              License[]
+  usageEvents           UsageEvent[]
+  financialTransactions FinancialTransaction[]
   // "memberships" (usuarios del cliente con login propio) se agrega cuando
   // se construya el portal/intranet -- ver PLANTEAMIENTO_SUPERADMIN.md SS2.
 
@@ -342,6 +343,91 @@ model UsageAggregateDaily {
 
   @@unique([organizationId, metric, periodStart])
   @@map("usage_aggregates_daily")
+}
+
+// ---------------------------------------------------------------------------
+// Finanzas internas del proyecto (SS6.7). Registra las finanzas de la
+// empresa propietaria del SaaS, no la contabilidad tributaria de los
+// clientes. Regla explicita de SS6.7: "los movimientos financieros no deben
+// borrarse fisicamente. Se anulan o revierten, conservando la trazabilidad"
+// -- por eso no hay DELETE, solo `voided` como estado terminal, y `version`
+// para optimistic locking (regla de SS8).
+//
+// No incluye adjuntos de sustento todavia: requieren almacenamiento de
+// objetos (S3) que no existe hasta que se despliegue la infraestructura de
+// AWS. Tampoco incluye "presupuesto frente a ejecucion" (SS6.7): no hay una
+// entidad de presupuesto en el modelo de datos de SS8 que lo respalde: se
+// agregaria como un modulo propio si el negocio lo pide.
+// ---------------------------------------------------------------------------
+
+enum FinancialTransactionType {
+  income
+  expense
+}
+
+enum FinancialTransactionStatus {
+  pending
+  partial
+  paid
+  overdue
+  voided
+}
+
+model FinancialCategory {
+  id        String                   @id @default(uuid())
+  code      String                   @unique
+  name      String
+  kind      FinancialTransactionType
+  createdAt DateTime                 @default(now()) @map("created_at")
+
+  transactions FinancialTransaction[]
+
+  @@map("financial_categories")
+}
+
+model CostCenter {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  transactions FinancialTransaction[]
+
+  @@map("cost_centers")
+}
+
+model FinancialTransaction {
+  id             String                      @id @default(uuid())
+  type           FinancialTransactionType
+  status         FinancialTransactionStatus  @default(pending)
+  categoryId     String                      @map("category_id")
+  costCenterId   String?                     @map("cost_center_id")
+  organizationId String?                     @map("organization_id")
+  counterparty   String?
+  currency       String                      @default("PEN")
+  amount         Int
+  // Tipo de cambio registrado al momento del movimiento, escalado x10000
+  // (37500 = 3.7500 PEN/USD) para no usar Decimal/float (regla de SS8 sobre
+  // dinero aplicada tambien aqui, aunque esto es un ratio, no un monto).
+  exchangeRate   Int?                        @map("exchange_rate")
+  paymentMethod  String?                     @map("payment_method")
+  description    String?
+  issuedAt       DateTime                    @map("issued_at")
+  dueAt          DateTime?                   @map("due_at")
+  paidAt         DateTime?                   @map("paid_at")
+  voidedAt       DateTime?                   @map("voided_at")
+  voidReason     String?                     @map("void_reason")
+  version        Int                         @default(1)
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  updatedAt      DateTime                    @updatedAt @map("updated_at")
+
+  category     FinancialCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  costCenter   CostCenter?       @relation(fields: [costCenterId], references: [id], onDelete: Restrict)
+  organization Organization?     @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([type, status])
+  @@index([organizationId])
+  @@map("financial_transactions")
 }
 
 // ---------------------------------------------------------------------------
