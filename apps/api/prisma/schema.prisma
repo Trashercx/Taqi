@@ -1,0 +1,218 @@
+// Esquema de la Fase 1 (identidad, RBAC, organizaciones, auditoria) segun
+// PLANTEAMIENTO_SUPERADMIN.md SS5, SS6.1-SS6.3, SS6.9, SS8. Licencias, planes,
+// consumo y finanzas se agregan en las fases siguientes del roadmap.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identidad y RBAC (personal de la plataforma: Platform Owner, Superadmin,
+// Finance Admin, Support Agent, Auditor -- ver SS5). No confundir con los
+// futuros usuarios del cliente (Client Owner), que viven en el portal/
+// intranet todavia fuera de alcance.
+// ---------------------------------------------------------------------------
+
+enum PlatformUserStatus {
+  invited
+  active
+  suspended
+}
+
+model PlatformUser {
+  id                 String             @id @default(uuid())
+  email              String             @unique
+  fullName           String             @map("full_name")
+  passwordHash       String?            @map("password_hash")
+  status             PlatformUserStatus @default(invited)
+  mustChangePassword Boolean            @default(false) @map("must_change_password")
+  failedLoginCount   Int                @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?          @map("locked_until")
+  lastLoginAt        DateTime?          @map("last_login_at")
+  invitationTokenHash String?           @unique @map("invitation_token_hash")
+  invitationExpiresAt DateTime?         @map("invitation_expires_at")
+  passwordResetTokenHash String?        @unique @map("password_reset_token_hash")
+  passwordResetExpiresAt DateTime?      @map("password_reset_expires_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  roles      UserRole[]
+  sessions   Session[]
+  mfaMethods MfaMethod[]
+
+  @@map("platform_users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  description String?
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  user PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// Sesion = un refresh token activo. El access token JWT no se persiste (vive
+// 10-15 min y se valida por firma); el refresh token si, para poder listarlo
+// y revocarlo individualmente (SS6.1 "sesiones visibles y revocables").
+model Session {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  refreshTokenHash String    @map("refresh_token_hash")
+  userAgent        String?   @map("user_agent")
+  ipHash           String?   @map("ip_hash")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedReason    String?   @map("revoked_reason")
+
+  user PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// MFA por TOTP (SS6.1). El secreto se guarda cifrado por la capa de
+// aplicacion (ver MfaService), nunca en texto plano en un dump de BD.
+model MfaMethod {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  type            String    @default("totp")
+  secretEncrypted String    @map("secret_encrypted")
+  backupCodeHashes String[] @map("backup_code_hashes")
+  verifiedAt      DateTime? @map("verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("mfa_methods")
+}
+
+// ---------------------------------------------------------------------------
+// Clientes (SS6.2). "organizations" son las empresas que compran una
+// licencia -- no tienen login propio todavia (eso es la futura intranet).
+// ---------------------------------------------------------------------------
+
+enum OrganizationStatus {
+  prospecto
+  prueba
+  activo
+  moroso
+  suspendido
+  cerrado
+}
+
+model Organization {
+  id         String             @id @default(uuid())
+  legalName  String             @map("legal_name")
+  tradeName  String?            @map("trade_name")
+  ruc        String?            @unique
+  email      String?
+  phone      String?
+  address    String?
+  status     OrganizationStatus @default(prospecto)
+  notes      String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  contacts OrganizationContact[]
+  // "memberships" (usuarios del cliente con login propio) se agrega cuando
+  // se construya el portal/intranet -- ver PLANTEAMIENTO_SUPERADMIN.md SS2.
+
+  @@map("organizations")
+}
+
+model OrganizationContact {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  fullName       String   @map("full_name")
+  email          String?
+  phone          String?
+  kind           String? // comercial | tecnico
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Auditoria (SS6.9). Append-only: el rol de aplicacion no tiene UPDATE ni
+// DELETE sobre esta tabla (ver migracion 0002_app_runtime_role) y cada fila
+// encadena un hash con la anterior para detectar alteracion directa en BD.
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  seq          Int      @unique @default(autoincrement())
+  actorId      String?  @map("actor_id")
+  actorEmail   String?  @map("actor_email")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  reason       String?
+  metadata     Json?
+  ipHash       String?  @map("ip_hash")
+  userAgent    String?  @map("user_agent")
+  previousHash String   @map("previous_hash")
+  hash         String   @unique
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// Fila unica (id=1) usada para serializar la escritura de audit_logs con
+// SELECT ... FOR UPDATE, garantizando que el encadenado de hashes no tenga
+// condiciones de carrera entre escritores concurrentes.
+model AuditChainLock {
+  id      Int    @id @default(1)
+  tipHash String @default("genesis") @map("tip_hash")
+
+  @@map("audit_chain_lock")
+}
