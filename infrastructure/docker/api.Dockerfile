@@ -11,6 +11,9 @@ WORKDIR /app
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/package.json
+# El postinstall del paquete ("prisma generate") necesita el schema
+# presente ANTES del install, o falla con "Could not find Prisma Schema".
+COPY apps/api/prisma ./apps/api/prisma
 COPY packages ./packages
 
 RUN pnpm install --filter @superadmin/api... --frozen-lockfile || pnpm install --filter @superadmin/api...
@@ -18,10 +21,5 @@ RUN pnpm install --filter @superadmin/api... --frozen-lockfile || pnpm install -
 COPY apps/api ./apps/api
 
 WORKDIR /app/apps/api
-# El postinstall de @prisma/client no encuentra el schema cuando corre desde
-# la raiz del workspace filtrado; se genera el cliente explicitamente aqui,
-# ya con el codigo fuente completo copiado.
-RUN npx prisma generate
-
 EXPOSE 3001
 CMD ["pnpm", "run", "dev"]
