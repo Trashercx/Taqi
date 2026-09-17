@@ -1,0 +1,27 @@
+{
+  "name": "@superadmin/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Worker de colas (BullMQ) del Superadmin SaaS",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.2",
+    "pino": "^9.6.0"
+  },
+  "devDependencies": {
+    "@superadmin/eslint-config": "workspace:*",
+    "@types/node": "^20.17.10",
+    "eslint": "^8.57.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

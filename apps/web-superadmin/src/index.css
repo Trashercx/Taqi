@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "@superadmin/design-tokens/tokens.css";
+@import "@superadmin/design-tokens/tailwind-theme.css";
+
+body {
+  margin: 0;
+  background: var(--surface-canvas);
+  color: var(--color-charcoal);
+  font-family: var(--font-inter);
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-body-lg);
+  -webkit-font-smoothing: antialiased;
+}

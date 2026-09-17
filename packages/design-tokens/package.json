@@ -1,0 +1,7 @@
+{
+  "name": "@superadmin/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "main": "tokens.css",
+  "files": ["tokens.css", "tailwind-theme.css"]
+}
