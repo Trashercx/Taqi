@@ -60,4 +60,45 @@ export class AuditService {
       await tx.$executeRaw`UPDATE audit_chain_lock SET tip_hash = ${hash} WHERE id = 1`;
     });
   }
+
+  async list(query: {
+    actorId?: string;
+    resourceType?: string;
+    resourceId?: string;
+    action?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+
+    const where = {
+      actorId: query.actorId,
+      resourceType: query.resourceType,
+      resourceId: query.resourceId,
+      action: query.action,
+      ...(query.from || query.to
+        ? {
+            createdAt: {
+              gte: query.from ? new Date(query.from) : undefined,
+              lte: query.to ? new Date(query.to) : undefined,
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { seq: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return { items, page, pageSize, total };
+  }
 }
