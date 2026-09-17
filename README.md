@@ -93,8 +93,23 @@ contenedores con hot-reload por volumen.
 
 - **Fase 0 — Descubrimiento y base:** completa (monorepo, Docker, CI, tokens
   de diseño, app shell, ADR iniciales, threat model preliminar).
-- **Fase 1 — Identidad y organizaciones:** en curso (login, MFA, RBAC por
-  capacidades, organizaciones, usuarios, auditoría).
+- **Fase 1 — Identidad y organizaciones:** completa (login, MFA, RBAC por
+  capacidades, organizaciones, usuarios, auditoría append-only).
+- **Fase 2 — Licencias y planes:** completa (máquina de estados de
+  licencias, versionado inmutable de planes).
+- **Fase 3 — Medición de consumo y cuotas:** completa (eventos de uso,
+  agregados por hora/día, estado de cuota contra el plan activo).
+- **Fase 4 — Finanzas internas:** completa (ingresos/gastos, optimistic
+  locking, anulación sin borrado físico, dashboard de flujo de caja/MRR).
+- **Frontend (`web-superadmin`):** conectado a todo lo anterior — login con
+  MFA, clientes, usuarios, licencias, planes, consumo y finanzas operan con
+  datos reales. Alertas, Salud del sistema y Configuración siguen como
+  placeholders: no tienen backend todavía.
+
+No implementado todavía (documentado explícitamente en el código, no
+descuidos): infraestructura AWS real, adjuntos de sustento (necesitan S3),
+agregación asíncrona de consumo vía cola/worker, vencimiento automático de
+licencias por paso del tiempo, y el módulo de Alertas (SS6.8).
 
 Ver el roadmap completo y las fases siguientes en
 [`PLANTEAMIENTO_SUPERADMIN.md §16`](./PLANTEAMIENTO_SUPERADMIN.md#16-roadmap-de-implementación).
