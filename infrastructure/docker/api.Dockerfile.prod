@@ -34,6 +34,15 @@ RUN pnpm install --filter @superadmin/api... --frozen-lockfile
 FROM deps AS build
 COPY apps/api ./apps/api
 RUN pnpm --filter @superadmin/api build
+# The production image does not install ts-node. Compile the one-off seed so
+# Dokploy and ECS can run it with plain Node without shipping dev dependencies.
+RUN pnpm --filter @superadmin/api exec tsc prisma/seed.ts \
+  --outDir dist \
+  --module commonjs \
+  --target ES2021 \
+  --moduleResolution node \
+  --esModuleInterop \
+  --skipLibCheck
 
 # ---------------------------------------------------------------------------
 # Reinstala solo dependencias de produccion en una etapa limpia. Se probo

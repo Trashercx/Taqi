@@ -12,6 +12,8 @@ vive en [`PLANTEAMIENTO_SUPERADMIN.md`](./PLANTEAMIENTO_SUPERADMIN.md). La
 referencia visual del producto vive en [`DESIGN.md`](./DESIGN.md). Este
 README cubre cómo correr el proyecto localmente (Docker). Para desplegarlo
 en AWS paso a paso, ver [`AWS_DEPLOYMENT_GUIDE.md`](./AWS_DEPLOYMENT_GUIDE.md).
+Para una demo o MVP en un VPS con despliegue automático desde GitHub, ver
+[`DOKPLOY_DEPLOYMENT_GUIDE.md`](./DOKPLOY_DEPLOYMENT_GUIDE.md).
 
 ## Stack
 
